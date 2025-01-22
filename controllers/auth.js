@@ -297,9 +297,30 @@ const generateOtp = asyncHandler(async (req, res) => {
 
   await user.save();
 
-  // Send OTP to user (e.g., via email/SMS)
-  // For demonstration, we return it in the response
-  res.status(200).json({ message: "OTP generated successfully", otp });
+  // Email data with OTP included
+  const emailData = {
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: "Your OTP Code",
+    html: `
+      <h1>OTP for Your Account</h1>
+      <p>Your OTP code is: <strong>${otp}</strong></p>
+      <p>This OTP will expire in 10 minutes.</p>
+      <hr />
+      <p>If you did not request this OTP, please ignore this email.</p>
+    `,
+  };
+
+  // Send OTP email
+  try {
+    await transporter.sendMail(emailData);
+    res.status(200).json({ message: "OTP sent successfully to your email." });
+  } catch (error) {
+    return res.status(500).json({
+      error:
+        "There was an error sending the OTP email. Please try again later.",
+    });
+  }
 });
 
 const verifyRecaptcha = asyncHandler(async (req, res) => {
