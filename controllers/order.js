@@ -196,6 +196,35 @@ const userOrders = asyncHandler(async (req, res) => {
   res.send(userOrderList);
 });
 
+const getLastSalesOrders = asyncHandler(async (req, res) => {
+  const lastSalesOrders = await Order.find()
+    .populate({
+      path: "orderItems",
+      populate: {
+        path: "product",
+        select: "name price image",
+      },
+    })
+    .sort({ dateOrdered: -1 })
+    .limit(6);
+
+  const formattedOrders = lastSalesOrders.map((order) => {
+    const totalPrice = order.orderItems.reduce((total, item) => {
+      return total + item.product.price * item.quantity;
+    }, 0);
+
+    return {
+      id: order.id,
+      dateOrdered: order.dateOrdered,
+      status: order.status,
+      total: totalPrice,
+      orderItems: order.orderItems,
+    };
+  });
+
+  res.json(formattedOrders);
+});
+
 export {
   list,
   create,
@@ -205,4 +234,5 @@ export {
   totalSales,
   countOrders,
   userOrders,
+  getLastSalesOrders,
 };

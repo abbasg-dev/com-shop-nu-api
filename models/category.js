@@ -1,18 +1,35 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const categorySchema = mongoose.Schema({
+const categorySchema = mongoose.Schema(
+  {
     name: {
-        type: String,
-        required: true,
+      type: String,
+      required: true,
     },
     icon: {
-        type: String
+      type: String,
     },
     color: {
-        type: String
-    }
+      type: String,
+    },
+    subcategory: [
+      {
+        value: { type: mongoose.Schema.Types.Mixed },
+        label: { type: String },
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
+categorySchema.virtual("id").get(function () {
+  this._id.toHexString();
 });
 
-const Category = mongoose.model('Category', categorySchema)
+categorySchema.set("toJSON", {
+  virtuals: true,
+});
 
-export default Category
+const Category = mongoose.model("Category", categorySchema);
+
+export default Category;
