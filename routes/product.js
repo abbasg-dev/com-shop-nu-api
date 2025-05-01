@@ -1,29 +1,25 @@
 import express from "express";
-import { uploadOptions } from "../helpers/file-upload.js";
-
 const router = express.Router();
 
 import {
   create,
+  updateProduct,
   list,
   productById,
-  updateProduct,
-  remove,
+  deleteProduct,
   countProducts,
   countFeaturedProducts,
-  multipleImageUpload,
   countFeaturedByCategory,
+  getHighestPrice,
 } from "../controllers/product.js";
 
-router.post("/", uploadOptions.single("image"), create);
+router.get("/highest-price", getHighestPrice);
+
 router.get("/", list);
-router.route("/:id").get(productById).delete(remove);
-router.put("/:id", uploadOptions.single("image"), updateProduct);
-router.put(
-  "/gallery-images/:id",
-  uploadOptions.array("images", 10),
-  multipleImageUpload
-);
+router.post("/", (req, res) => create(req, res));
+router.route("/:id").put((req, res) => updateProduct(req, res));
+router.get("/:id", productById);
+router.delete("/:id", deleteProduct);
 router.get("/get/count", countProducts);
 router.get("/get/featured/:count", countFeaturedProducts);
 router.get("/get/featured-by-category/:count", countFeaturedByCategory);

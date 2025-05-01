@@ -2,6 +2,7 @@ import asyncHandler from "express-async-handler";
 import Stripe from "stripe";
 import Order from "../models/order.js";
 import OrderItem from "../models/order-item.js";
+import Product from "../models/product.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -11,7 +12,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const list = asyncHandler(async (req, res) => {
   Order.find()
     .populate("user", "name")
-    .sort({ dateOrdered: -1 }) //newest to oldest
+    .sort({ dateOrdered: -1 }) // newest to oldest
     .exec((err, orders) => {
       if (err) {
         res.status(400).json({
@@ -24,7 +25,7 @@ const list = asyncHandler(async (req, res) => {
 
 const create = asyncHandler(async (req, res) => {
   try {
-    const orderItemsIds = Promise.all(
+    const orderItemsIds = await Promise.all(
       req.body.orderItems?.map(async (orderItem) => {
         let newOrderItem = new OrderItem({
           quantity: orderItem.quantity,
@@ -45,6 +46,21 @@ const create = asyncHandler(async (req, res) => {
           "price"
         );
         const totalPrice = orderItem.product.price * orderItem.quantity;
+
+        // Update purchase history for the product
+        await Product.findByIdAndUpdate(orderItem.product._id, {
+          $push: {
+            purchaseHistory: {
+              user: req.body.user, // Assuming user ID is passed in the request
+              quantity: orderItem.quantity,
+              purchaseDate: new Date(),
+            },
+          },
+          $inc: {
+            orderCount: orderItem.quantity,
+          },
+        });
+
         return totalPrice;
       })
     );
@@ -76,10 +92,11 @@ const create = asyncHandler(async (req, res) => {
 
     const createdOrder = await order.save();
 
-    if (!order)
+    if (!createdOrder) {
       res.status(500).json({
         message: "Order cannot be created",
       });
+    }
 
     res.status(201).json({
       order: createdOrder,

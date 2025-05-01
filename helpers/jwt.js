@@ -18,7 +18,10 @@ const requireSignin = () => {
     isRevoked: isRevoked, // a function to verify if a token is revoked
   }).unless({
     path: [
-      { url: /\/api\/v1\/products(.*)/, methods: ["GET", "OPTIONS"] },
+      {
+        url: /\/api\/v1\/products(.*)/,
+        methods: ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
+      },
       {
         url: /\/api\/v1\/categories(.*)/,
         methods: ["GET", "OPTIONS", "POST", "PUT"],
@@ -28,6 +31,30 @@ const requireSignin = () => {
       {
         url: /\/api\/v1\/users(.*)/,
         methods: ["GET", "OPTIONS", "POST", "PUT"],
+      },
+      {
+        url: /\/api\/v1\/brands(.*)/,
+        methods: ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
+      },
+      {
+        url: /\/api\/v1\/colors(.*)/,
+        methods: ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
+      },
+      {
+        url: /\/api\/v1\/weight(.*)/,
+        methods: ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
+      },
+      {
+        url: /\/api\/v1\/ram(.*)/,
+        methods: ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
+      },
+      {
+        url: /\/api\/v1\/size(.*)/,
+        methods: ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
+      },
+      {
+        url: /\/api\/v1\/reviews(.*)/,
+        methods: ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
       },
       `${api}/auth/signin`,
       `${api}/auth/google-login`,

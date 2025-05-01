@@ -1,35 +1,36 @@
 import mongoose from "mongoose";
 
-const categorySchema = mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-    },
-    icon: {
-      type: String,
-    },
-    color: {
-      type: String,
-    },
-    subcategory: [
-      {
-        value: { type: mongoose.Schema.Types.Mixed },
-        label: { type: String },
-      },
-    ],
-  },
-  { timestamps: true }
-);
+const { model } = mongoose;
 
-categorySchema.virtual("id").get(function () {
-  this._id.toHexString();
+const childCategorySchema = new mongoose.Schema({
+  label: { type: String, required: false },
+  id: { type: String, required: false }, // Changed from value to id
 });
 
+const subcategorySchema = new mongoose.Schema({
+  label: { type: String, required: false },
+  id: { type: String, required: false }, // Changed from value to id
+  childcategories: [childCategorySchema],
+});
+
+const categorySchema = new mongoose.Schema({
+  categoryId: { type: String, required: true, unique: true },
+  categoryname: { type: String, required: true },
+  categoryicon: { type: String, required: true },
+  subcategories: [subcategorySchema],
+});
+
+// Duplicate the ID field
+categorySchema.virtual("id").get(function () {
+  return this._id.toHexString();
+});
+
+// Ensure virtual fields are serialized
 categorySchema.set("toJSON", {
   virtuals: true,
 });
 
-const Category = mongoose.model("Category", categorySchema);
+const Subcategory = model("Subcategory", subcategorySchema);
+const Category = model("Category", categorySchema);
 
-export default Category;
+export default { Category, Subcategory };
