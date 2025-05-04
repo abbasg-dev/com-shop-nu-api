@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
 import Product from "../models/product.js";
 
 const addReview = asyncHandler(async (req, res) => {
   const { user, rating, comment } = req.body;
-
   const product = await Product.findById(req.params.id);
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
@@ -41,18 +41,73 @@ const getReviews = asyncHandler(async (req, res) => {
   }
 });
 
+const getUserFromToken = (req) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.warn("Invalid or missing auth header:", authHeader);
+    return null;
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  // Log to check format
+  console.log("Raw token string:", token);
+  console.log("Type of token:", typeof token);
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded;
+  } catch (err) {
+    console.error("Token verification failed:", err.message);
+    return null;
+  }
+};
+
+/*
+Raw token string: [object
+Type of token: string
+Token verification failed: jwt malformed
+*/
+
+const reviewByUser = asyncHandler(async (req, res) => {
+  const { productId, userId } = req.body;
+
+  if (!productId || !userId) {
+    return res
+      .status(400)
+      .json({ message: "Product ID and User ID are required" });
+  }
+
+  const product = await Product.findById(productId);
+  if (!product) {
+    return res.status(404).json({ message: "Product not found" });
+  }
+
+  const review = product.reviews.find(
+    (r) => r.user.toString() === userId.toString()
+  );
+
+  if (!review) {
+    return res.status(404).json({ message: "No review by this user" });
+  }
+
+  res.json({
+    rating: review.rating,
+    comment: review.comment,
+    _id: review._id,
+  });
+});
+
 const editReview = asyncHandler(async (req, res) => {
-  const { rating, comment } = req.body;
-  const userId = req.user._id; // Assuming user is authenticated
+  const { rating, comment, _id } = req.body;
 
   const product = await Product.findById(req.params.id);
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
   }
 
-  const review = product.reviews.find(
-    (rev) => rev.user.toString() === userId.toString()
-  );
+  const review = product.reviews.id(_id);
 
   if (!review) {
     return res.status(404).json({ message: "Review not found" });
@@ -61,7 +116,6 @@ const editReview = asyncHandler(async (req, res) => {
   review.rating = rating ?? review.rating;
   review.comment = comment ?? review.comment;
 
-  // Recalculate product rating
   const totalRating = product.reviews.reduce(
     (acc, review) => acc + review.rating,
     0
@@ -73,9 +127,15 @@ const editReview = asyncHandler(async (req, res) => {
 });
 
 const deleteReview = asyncHandler(async (req, res) => {
-  const userId = req.user._id; // Assuming user is authenticated
+  const { productId, userId } = req.body;
 
-  const product = await Product.findById(req.params.id);
+  if (!productId || !userId) {
+    return res
+      .status(400)
+      .json({ message: "Product ID and User ID are required" });
+  }
+
+  const product = await Product.findById(productId);
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
   }
@@ -223,15 +283,12 @@ const filterReviews = asyncHandler(async (req, res) => {
 const ratingById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  // Validate the id parameter before proceeding
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: "Invalid product ID" });
   }
 
   try {
-    // Continue with the logic to fetch the product
     const product = await Product.findById(id);
-
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
@@ -239,28 +296,40 @@ const ratingById = asyncHandler(async (req, res) => {
     const reviews = product.reviews ?? [];
 
     if (product.numReviews === 0) {
+      const ratingPercentages = {};
+      for (let r = 0.5; r <= 5; r += 0.5) {
+        ratingPercentages[r.toFixed(1)] = 0;
+      }
+
       return res.json({
-        ratingPercentages: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+        ratingPercentages,
         overallPercentage: 0,
         numRatings: 0,
       });
     }
 
-    const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    // Initialize rating buckets for 0.5 increments
+    const ratingCounts = {};
+    for (let r = 0.5; r <= 5; r += 0.5) {
+      ratingCounts[r.toFixed(1)] = 0;
+    }
+
     let numRatings = 0;
 
     for (const { rating } of reviews) {
       const r = Number(rating);
-      if (r >= 1 && r <= 5) {
-        ratingCounts[r]++;
+      if (r >= 0.5 && r <= 5) {
+        const bucket = (Math.round(r * 2) / 2).toFixed(1); // Round to nearest 0.5
+        ratingCounts[bucket]++;
         numRatings++;
       }
     }
 
     const ratingPercentages = {};
-    for (let r = 1; r <= 5; r++) {
-      ratingPercentages[r] = parseFloat(
-        ((ratingCounts[r] / product.numReviews) * 100).toFixed(1)
+    for (let r = 0.5; r <= 5; r += 0.5) {
+      const key = r.toFixed(1);
+      ratingPercentages[key] = parseFloat(
+        ((ratingCounts[key] / numRatings) * 100).toFixed(1)
       );
     }
 
@@ -283,6 +352,7 @@ export {
   addReview,
   getReviews,
   ratingById,
+  reviewByUser,
   editReview,
   deleteReview,
   likeReview,

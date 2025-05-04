@@ -1,9 +1,11 @@
 import express from "express";
+
 const router = express.Router();
 
 import {
   addReview,
   getReviews,
+  reviewByUser,
   ratingById,
   editReview,
   deleteReview,
@@ -12,6 +14,7 @@ import {
   filterReviews,
 } from "../controllers/reviews.js";
 
+router.post("/user", reviewByUser);
 router.post("/:id", addReview);
 router.get("/:id", getReviews);
 router.get("/:id/percentages", ratingById);
