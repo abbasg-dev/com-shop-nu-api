@@ -41,35 +41,6 @@ const getReviews = asyncHandler(async (req, res) => {
   }
 });
 
-const getUserFromToken = (req) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    console.warn("Invalid or missing auth header:", authHeader);
-    return null;
-  }
-
-  const token = authHeader.split(" ")[1];
-
-  // Log to check format
-  console.log("Raw token string:", token);
-  console.log("Type of token:", typeof token);
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return decoded;
-  } catch (err) {
-    console.error("Token verification failed:", err.message);
-    return null;
-  }
-};
-
-/*
-Raw token string: [object
-Type of token: string
-Token verification failed: jwt malformed
-*/
-
 const reviewByUser = asyncHandler(async (req, res) => {
   const { productId, userId } = req.body;
 
