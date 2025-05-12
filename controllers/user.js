@@ -1,33 +1,151 @@
 import asyncHandler from "express-async-handler";
+import formidable from "formidable";
 import bcrypt from "bcryptjs";
 import User from "../models/user.js";
+import cloudinary from "../config/cloudinary.js";
 
 const create = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  const userExists = await User.findOne({ email });
-  if (userExists) {
-    res.status(400).send("User already exists");
-  } else {
-    const user = new User({
-      name: req.body.name,
-      email: req.body.email,
-      passwordHash: bcrypt.hashSync(req.body.passwordHash, 10),
-      phone: req.body.phone,
-      isAdmin: req.body.isAdmin,
-      street: req.body.street,
-      apartment: req.body.apartment,
-      zip: req.body.zip,
-      city: req.body.city,
-      country: req.body.country,
-    });
-    const createdUser = await user.save();
-    if (user) {
-      res.status(201).json(createdUser);
-    } else {
-      res.status(500).send("Invalid user data");
+  const form = formidable({ keepExtensions: true });
+
+  form.parse(req, async (err, fields, files) => {
+    if (err) {
+      return res.status(400).json({ error: "Failed to upload user." });
+    }
+
+    const userExists = await User.findOne({ email });
+
+    if (userExists) {
+      return res.status(404).json({ error: "User already exists." });
+    }
+
+    try {
+      const createdUser = await handleUserForm(fields, files);
+      res.status(201).json({
+        message: "User created successfully!",
+        user: createdUser,
+      });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+});
+
+const updateUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const form = formidable({ keepExtensions: true });
+
+  form.parse(req, async (err, fields, files) => {
+    if (err) {
+      return res.status(400).json({ error: "Failed to upload user." });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    try {
+      const updatedUser = await handleUserForm(fields, files, user);
+      res.status(200).json({
+        message: "User updated successfully!",
+        user: updatedUser,
+      });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+});
+
+const handleUserForm = async (fields = {}, files = {}, user = null) => {
+  if (!fields || typeof fields !== "object") {
+    throw new Error("Invalid fields structure.");
+  }
+
+  if (!files || typeof files !== "object") {
+    throw new Error("Invalid files structure.");
+  }
+
+  const getField = (key) => fields[key]?.[0] || "";
+
+  const rawFields = {
+    name: getField("name"),
+    email: getField("email"),
+    //password: getField("passwordHash"),
+    phone: getField("phone"),
+    street: getField("street"),
+    apartment: getField("apartment"),
+    zip: getField("zip"),
+    city: getField("city"),
+    country: getField("country"),
+  };
+
+  const labels = {
+    name: "Name",
+    email: "Email",
+    //password: "Password",
+    phone: "Phone",
+    street: "Street",
+    apartment: "Apartment",
+    zip: "Zip Code",
+    city: "City",
+    country: "Country",
+  };
+
+  for (const [key, value] of Object.entries(rawFields)) {
+    if (!value) {
+      throw new Error(`${labels[key]} is required.`);
     }
   }
-});
+
+  //const passwordHash = bcrypt.hashSync(rawFields.password, 10);
+
+  // Upload user profile image
+  let userprofile = user?.userprofile || "";
+
+  const uploadedFile = files["userprofile"]?.[0];
+  if (uploadedFile?.filepath) {
+    const filePath = uploadedFile.filepath;
+
+    if (user?.userprofile) {
+      const publicId = user.userprofile.split("/").pop().split(".")[0];
+      await cloudinary.v2.uploader.destroy(`blueseed/users/${publicId}`);
+    }
+
+    const result = await cloudinary.v2.uploader.upload(filePath, {
+      folder: "blueseed/users",
+    });
+
+    userprofile = result.secure_url;
+  }
+
+  const userData = {
+    name: rawFields.name,
+    email: rawFields.email,
+    //passwordHash,
+    phone: rawFields.phone,
+    street: rawFields.street,
+    apartment: rawFields.apartment,
+    zip: rawFields.zip,
+    city: rawFields.city,
+    country: rawFields.country,
+    userprofile,
+  };
+
+  let savedUser;
+  if (user) {
+    userData._id = user._id;
+    savedUser = await User.findByIdAndUpdate(user._id, userData, { new: true });
+  } else {
+    savedUser = new User(userData);
+    await savedUser.save();
+  }
+
+  return {
+    __id: savedUser._id,
+    ...userData,
+  };
+};
 
 const list = asyncHandler(async (req, res) => {
   const userList = await User.find().select("-passwordHash");
@@ -49,34 +167,6 @@ const userById = asyncHandler(async (req, res) => {
       .json({ error: "The user with the given ID was not found." });
   }
   res.status(200).send(user);
-});
-
-const updateUser = asyncHandler(async (req, res) => {
-  const userIdExists = await User.findById(req.params.id);
-  const userEmailExists = await User.findOne({
-    _id: { $ne: userIdExists },
-    email: req.body.email,
-  });
-  if (userEmailExists) {
-    res.status(409).send({ error: "Email is already taken." });
-  } else {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      {
-        name: req.body.name,
-        email: req.body.email,
-        phone: req.body.phone,
-        street: req.body.street,
-        apartment: req.body.apartment,
-        zip: req.body.zip,
-        city: req.body.city,
-        country: req.body.country,
-      },
-      { new: true }
-    );
-    if (!user) res.status(400).send({ error: "Invalid user data" });
-    res.status(200).json({ message: "Profile updated successfully." });
-  }
 });
 
 const countUsers = asyncHandler(async (req, res) => {

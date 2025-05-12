@@ -66,6 +66,7 @@ const userSchema = mongoose.Schema({
       type: Date,
     },
   },
+  userprofile: { type: String, required: false },
 });
 
 // Duplicate the ID field

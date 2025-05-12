@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
 import Product from "../models/product.js";
 
@@ -31,9 +30,11 @@ const addReview = asyncHandler(async (req, res) => {
 });
 
 const getReviews = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id).populate(
-    "reviews.user"
-  );
+  const product = await Product.findById(req.params.id).populate({
+    path: "reviews.user",
+    select: "name userprofile",
+  });
+
   if (product) {
     res.json(product.reviews);
   } else {
