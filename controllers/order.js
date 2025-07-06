@@ -43,16 +43,11 @@ const create = asyncHandler(async (req, res) => {
       orderItemsIdsResolved?.map(async (orderItemId) => {
         const orderItem = await OrderItem.findById(orderItemId).populate(
           "product",
-          "price"
+          "priceAfterDiscount"
         );
 
-        if (!orderItem.product || typeof orderItem.product.price !== "number") {
-          throw new Error(
-            `Invalid product or price for order item ${orderItemId}`
-          );
-        }
-
-        const totalPrice = orderItem.product.price * orderItem.quantity;
+        const totalPrice =
+          orderItem.product.priceAfterDiscount * orderItem.quantity;
 
         // Update purchase history for the product
         await Product.findByIdAndUpdate(orderItem.product._id, {
@@ -234,7 +229,7 @@ const getLastSalesOrders = asyncHandler(async (req, res) => {
 
   const formattedOrders = lastSalesOrders.map((order) => {
     const totalPrice = order.orderItems.reduce((total, item) => {
-      return total + item.product.price * item.quantity;
+      return total + item.product.originalPrice * item.quantity;
     }, 0);
 
     return {
