@@ -72,7 +72,7 @@ const create = asyncHandler(async (req, res) => {
     if (req.body.createPaymentIntent) {
       paymentIntent = await stripe.paymentIntents.create({
         amount: req.body.amount,
-        currency: "usd",
+        currency: "aed",
         payment_method_types: ["card"],
       });
     }
