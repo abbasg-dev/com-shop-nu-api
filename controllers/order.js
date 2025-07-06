@@ -45,6 +45,13 @@ const create = asyncHandler(async (req, res) => {
           "product",
           "price"
         );
+
+        if (!orderItem.product || typeof orderItem.product.price !== "number") {
+          throw new Error(
+            `Invalid product or price for order item ${orderItemId}`
+          );
+        }
+
         const totalPrice = orderItem.product.price * orderItem.quantity;
 
         // Update purchase history for the product
